@@ -1,0 +1,122 @@
+# coding: utf-8
+
+# ## Project - Book Depository dataset
+
+
+def main ():
+    import pandas as pd
+
+    # ### Lendo os arquivos csv
+    file_list = ['./BookDepository/authors.csv','./BookDepository/categories.csv', 
+    './BookDepository/formats.csv', './BookDepository/dataset.csv' ]
+    authors, categories, formats, dataset = (pd.read_csv(file) for file in file_list)
+
+
+    # ### Preparação dos dados
+    # Criando os mapas para cruzamento dos dados
+    authors_map = {str(r.author_id):r.author_name for _,r in authors.iterrows()}
+    categories_map = {str(r.category_id):r.category_name for _,r in categories.iterrows()}
+    formats_map = {r.format_id:r.format_name for _,r in formats.iterrows()}
+
+    dataset['authors_name'] = dataset.authors.apply(lambda x: list(map(authors_map.get, x.replace('[','').replace(']','').split(', '))))
+    dataset['categories_name'] = dataset.categories.apply(lambda x: list(map(categories_map.get, x.replace('[','').replace(']','').split(', '))))
+    dataset['format_name'] = dataset.format.map(formats_map)
+
+    # ## ----- PERGUNTAS -------
+
+    # ### 1. Qual a quantidade total de livros da base?
+    print(f'Qual a quantidde total de livros da base? {len(dataset)} livros')
+
+    ## Removendo os livros repetidos
+    dataset_not_duplicates = dataset.drop_duplicates(['title'])
+
+    print(f'Qual a quantidade total de livros distintos da base? {len(dataset_not_duplicates)} livros distintos')
+
+
+    # ### 2. Qual a quantidade de livros que possuí apenas 1 autor?
+    dataset['qtd_authors'] = dataset.authors_name.apply(lambda x: len(x))
+    dataset_not_duplicates['qtd_authors'] = dataset_not_duplicates.authors_name.apply(lambda x: len(x))
+
+    print(f'Quantidade de livros que possui apenas 1 autor? {len(dataset[dataset.qtd_authors == 1])} livros')
+    print(f'Quantidade de livros distintos que possui apenas 1 autor? {len(dataset_not_duplicates[dataset_not_duplicates.qtd_authors == 1])} livros distintos')
+
+
+    # ### 3. Quais os 5 autores com a maior quantidade de livros?
+    df_authors_not_duplicates = dataset_not_duplicates.explode('authors_name')
+    top5Authors_qtd_book_not_duplicates= df_authors_not_duplicates.authors_name.value_counts().head(5)
+    df_authors = dataset.explode('authors_name')
+    top5Authors_qtd_book = df_authors.authors_name.value_counts().head(5)
+
+    print(f"Quais são os 5 autores com a maior quantidade de livros ? {(', '.join(str(author) for author in top5Authors_qtd_book.index))}")
+    print(f"Quais são os 5 autores com a maior quantidade de livros distintos? {(', '.join(str(author) for author in top5Authors_qtd_book_not_duplicates.index))}")
+
+
+    # ### 4. Qual a quantidade de livros por categoria?
+    ## Utilizando o dataset inteiro considerando os livros repetidos
+    df_categories = dataset.explode('categories_name')
+    df_categories['qtd_book_categories'] = df_categories.groupby(['categories_name'])['categories_name'].transform('count')
+    df_categories_final = df_categories[['categories_name','qtd_book_categories']].drop_duplicates(['categories_name']).sort_values('qtd_book_categories', ascending=False).reset_index()
+    df_categories_final['category_qtd_books'] = df_categories_final.apply(lambda x: '{}-Qtd: {}'.format(x.categories_name, x.qtd_book_categories), axis=1)
+
+    print(f'Qual a quantidade de livros por categoria? \n{df_categories_final.category_qtd_books.tolist()}')
+
+    ## Utilizando o dataset com livros distintos
+    df_categories_not_duplicates = dataset_not_duplicates.explode('categories_name')
+    df_categories_not_duplicates['qtd_book_categories'] = df_categories_not_duplicates.groupby(['categories_name'])['categories_name'].transform('count')
+    df_categoriesFinal_not_duplicates = df_categories_not_duplicates[['categories_name','qtd_book_categories']].drop_duplicates(['categories_name']).sort_values('qtd_book_categories', ascending=False).reset_index()
+    df_categoriesFinal_not_duplicates['category_qtd_books'] = df_categoriesFinal_not_duplicates.apply(lambda x: '{}-Qtd: {}'.format(x.categories_name, x.qtd_book_categories), axis=1)
+
+    print(f'Qual a quantidade de livros distintos por categoria? \n{df_categoriesFinal_not_duplicates.category_qtd_books.tolist()}')
+
+
+    # ### 5. Quais as 5 categorias com a maior quantidade de livros?
+    ## Utilizando o dataset inteiro considerando os livros repetidos
+    result_top5Categories_qtd_book = df_categories_final.head(5)
+
+    ## Utilizando o dataset com livros distintos
+    result_top5Categories_qtd_book_not_duplicates = df_categoriesFinal_not_duplicates.head(5)
+
+    print(f"Quais as 5 categorias com a maior quantidade de livros? {(', '.join(list(result_top5Categories_qtd_book.categories_name)))}")
+    print(f"Quais as 5 categorias com a maior quantidade de livros distintos? {(', '.join(list(result_top5Categories_qtd_book_not_duplicates.categories_name)))}")
+
+
+    # ### 6. Qual o formato com a maior quantidade de livros?
+    # Utilizando o dataset inteiro considerando os livros repetidos
+    dataset.format_name.value_counts()
+
+    ## Utilizando o dataset com livros distintos
+    dataset_not_duplicates.format_name.value_counts()
+
+    print(f'Qual o formato com a maior quantidade de livros? {dataset.format_name.value_counts().index[0]} - Qtd: {dataset.format_name.value_counts()[0]} livros')
+    print(f'Qual o formato com a maior quantidade de livros distintos? {dataset_not_duplicates.format_name.value_counts().index[0]} - Qtd: {dataset_not_duplicates.format_name.value_counts()[0]} livros distintos')
+
+
+    # ### 7. Considerando a coluna “bestsellers-rank”, quais os 10 livros mais bem posicionados?
+    ## Utilizando o dataset com livros distintos
+    result_top10_bestSellers_rank = dataset_not_duplicates.sort_values('bestsellers-rank', ascending=False).head(10)
+
+    print(f"Considerando a coluna “bestsellers-rank”, quais os 10 livros mais bem posicionados? \n{(', '.join(list(result_top10_bestSellers_rank.title)))}")
+
+
+    # ### 8. Considerando a coluna “rating-avg”, quais os 10 livros mais bem posicionados?
+    ## Utilizando o dataset com livros distintos
+    result_top10_book_rating_avg = dataset_not_duplicates.sort_values('rating-avg', ascending=False).head(10)
+
+    print(f"Considerando a coluna “bestsellers-rank”, quais os 10 livros mais bem posicionados? \n{(', '.join(list(result_top10_book_rating_avg.title)))}")
+
+
+    # ### 9. Quantos livros possuem “rating-avg” maior do que 3,5?
+    ## Utilizando o dataset com livros distintos
+    result_rating_avg_above = dataset_not_duplicates[dataset_not_duplicates['rating-avg'] > 3.5]
+
+    print(f'Quantos livros possuem "rating-avg" maior do que 3,5? {len(result_rating_avg_above)} livros distintos')
+
+
+    # ### 10. Quantos livros tem data de publicação (publication-date) maior do que 01-01-2020?
+    ## Utilizando o dataset com livros distintos
+    result_publication_date = dataset_not_duplicates[dataset_not_duplicates['publication-date'] > '2020-01-01 00:00:00']
+
+    print(f'Quantos livros tem data de publicação (publication-date) maior do que 01-01-2020? {len(result_publication_date)} livros')
+
+if __name__ == '__main__':
+    main()
